@@ -1,0 +1,1173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>GLP-1 Muscle Risk Assessment</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+<style>
+/* ─── RESET & BASE ─── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; }
+body {
+  font-family: 'Hanken Grotesk', sans-serif;
+  background: #f0f0ec;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ─── CONFIG: REPLACE THESE ─── */
+/* GOOGLE_SCRIPT_URL → tu Apps Script Web App URL */
+/* CALENDLY_URL → tu enlace de Calendly */
+
+/* ─── TOKENS ─── */
+:root {
+  --lime: #c5ed82;
+  --lime-dark: #a8d45e;
+  --lime-light: #eaf9cc;
+  --black: #111111;
+  --gray-900: #1a1a1a;
+  --gray-600: #5c5c5c;
+  --gray-400: #9a9a9a;
+  --gray-200: #e8e8e4;
+  --gray-100: #f5f5f2;
+  --white: #ffffff;
+  --radius-pill: 100px;
+  --radius-card: 20px;
+  --radius-sm: 12px;
+  --serif: 'DM Serif Display', serif;
+  --sans: 'Hanken Grotesk', sans-serif;
+  --risk-high-bg: #fff0f0; --risk-high-border: #f5a0a0; --risk-high-text: #991b1b;
+  --risk-mod-bg: #fffbeb;  --risk-mod-border: #fcd34d;  --risk-mod-text: #92400e;
+  --risk-low-bg: #f0fdf4;  --risk-low-border: #86efac;  --risk-low-text: #14532d;
+}
+
+/* ─── SHELL ─── */
+#app {
+  width: 100%;
+  max-width: 430px;
+  background: var(--white);
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  overflow: hidden;
+}
+
+/* ─── TOP BAR ─── */
+.top-bar {
+  background: var(--lime);
+  text-align: center;
+  padding: 9px 16px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  color: var(--black);
+  flex-shrink: 0;
+}
+
+/* ─── LOGO BAR ─── */
+.logo-bar {
+  padding: 16px 24px 14px;
+  flex-shrink: 0;
+}
+.logo {
+  font-family: var(--serif);
+  font-size: 38px;
+  line-height: 1;
+  letter-spacing: -0.04em;
+  color: var(--black);
+}
+
+/* ─── HERO IMAGE ─── */
+.hero-wrap {
+  width: 100%;
+  aspect-ratio: 16/9;
+  background: #3d5a2e;
+  overflow: hidden;
+  flex-shrink: 0;
+  position: relative;
+}
+.hero-wrap img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center top;
+}
+.hero-fallback {
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(135deg, #3d5a2e 0%, #5a7c42 50%, #c5ed82 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.hero-fallback-text {
+  font-family: var(--serif);
+  font-size: 28px;
+  color: rgba(255,255,255,0.9);
+  text-align: center;
+  line-height: 1.3;
+  padding: 20px;
+}
+
+/* ─── MAIN CARD ─── */
+.card {
+  background: var(--white);
+  border-radius: 40px 40px 0 0;
+  margin-top: -32px;
+  flex: 1;
+  padding: 28px 24px 48px;
+  position: relative;
+  z-index: 1;
+}
+
+/* ─── PROGRESS HEADER ─── */
+.progress-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 28px;
+}
+.back-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 1.5px solid var(--gray-200);
+  background: var(--white);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  font-size: 16px;
+  color: var(--gray-600);
+  transition: background 0.15s, border-color 0.15s;
+  -webkit-tap-highlight-color: transparent;
+}
+.back-btn:hover { background: var(--gray-100); border-color: var(--gray-400); }
+.back-btn:active { background: var(--lime-light); }
+.back-spacer { width: 36px; flex-shrink: 0; }
+
+.progress-track {
+  flex: 1;
+  height: 4px;
+  background: var(--gray-200);
+  border-radius: 4px;
+  overflow: hidden;
+}
+.progress-fill {
+  height: 100%;
+  background: var(--lime-dark);
+  border-radius: 4px;
+  transition: width 0.45s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.progress-count {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--gray-400);
+  min-width: 34px;
+  text-align: right;
+  letter-spacing: 0.03em;
+}
+
+/* ─── SECTION LABEL ─── */
+.section-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--gray-400);
+  margin-bottom: 8px;
+}
+
+/* ─── QUESTION TITLE ─── */
+.question-title {
+  font-size: 24px;
+  font-weight: 600;
+  color: var(--black);
+  line-height: 1.25;
+  margin-bottom: 6px;
+  letter-spacing: -0.02em;
+}
+.question-sub {
+  font-size: 14px;
+  color: var(--gray-600);
+  line-height: 1.55;
+  margin-bottom: 24px;
+}
+
+/* ─── OPTIONS ─── */
+.options {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.opt-btn {
+  width: 100%;
+  padding: 14px 18px;
+  border: 1.5px solid var(--gray-200);
+  border-radius: var(--radius-pill);
+  background: var(--white);
+  font-family: var(--sans);
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--gray-900);
+  cursor: pointer;
+  text-align: left;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  line-height: 1.35;
+  transition: border-color 0.12s, background 0.12s, transform 0.1s;
+  -webkit-tap-highlight-color: transparent;
+  position: relative;
+  overflow: hidden;
+}
+.opt-btn:hover { border-color: #c0c0bc; background: var(--gray-100); }
+.opt-btn:active { transform: scale(0.98); }
+
+/* Selected state — lime */
+.opt-btn.selected {
+  border-color: var(--lime-dark);
+  background: var(--lime-light);
+  color: var(--black);
+}
+/* Auto-advance flash */
+.opt-btn.flash {
+  border-color: var(--lime-dark);
+  background: var(--lime);
+  transition: background 0.08s;
+}
+
+.opt-text { flex: 1; }
+.opt-note {
+  font-size: 11px;
+  color: var(--gray-400);
+  display: block;
+  margin-top: 2px;
+  font-weight: 400;
+}
+.opt-btn.selected .opt-note { color: #5a7a30; }
+
+.opt-check {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 1.5px solid var(--gray-200);
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  color: transparent;
+  transition: background 0.15s, border-color 0.15s;
+}
+.opt-check.square { border-radius: 6px; }
+.opt-btn.selected .opt-check {
+  background: var(--lime-dark);
+  border-color: var(--lime-dark);
+  color: var(--black);
+}
+
+/* ─── CONTINUE BUTTON ─── */
+.continue-btn {
+  width: 100%;
+  padding: 15px 20px;
+  background: var(--black);
+  color: var(--white);
+  border: none;
+  border-radius: var(--radius-pill);
+  font-family: var(--sans);
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  margin-top: 16px;
+  letter-spacing: -0.01em;
+  transition: background 0.15s, transform 0.1s, opacity 0.15s;
+  -webkit-tap-highlight-color: transparent;
+}
+.continue-btn:hover { background: #2a2a2a; }
+.continue-btn:active { transform: scale(0.98); }
+.continue-btn:disabled {
+  background: var(--gray-200);
+  color: var(--gray-400);
+  cursor: not-allowed;
+}
+.skip-btn {
+  width: 100%;
+  padding: 13px 20px;
+  background: transparent;
+  color: var(--gray-600);
+  border: 1.5px solid var(--gray-200);
+  border-radius: var(--radius-pill);
+  font-family: var(--sans);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  margin-top: 8px;
+  transition: background 0.12s;
+  -webkit-tap-highlight-color: transparent;
+}
+.skip-btn:hover { background: var(--gray-100); }
+
+/* ─── BRIDGE SCREEN ─── */
+.bridge-card {
+  background: var(--gray-100);
+  border-radius: var(--radius-card);
+  border-left: 3px solid var(--lime-dark);
+  padding: 20px;
+  margin-bottom: 24px;
+}
+.bridge-headline {
+  font-family: var(--serif);
+  font-size: 21px;
+  color: var(--black);
+  line-height: 1.3;
+  margin-bottom: 12px;
+}
+.bridge-body {
+  font-size: 14px;
+  color: var(--gray-600);
+  line-height: 1.75;
+}
+.bridge-body .highlight {
+  font-weight: 700;
+  color: var(--black);
+  background: var(--lime-light);
+  padding: 1px 5px;
+  border-radius: 4px;
+}
+
+/* ─── LOADING SCREEN ─── */
+.loading-screen {
+  padding: 40px 0 20px;
+  text-align: center;
+}
+.loading-title {
+  font-family: var(--serif);
+  font-size: 22px;
+  color: var(--black);
+  margin-bottom: 32px;
+  line-height: 1.35;
+}
+.loading-steps {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 0;
+  text-align: left;
+}
+.load-step {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 0;
+  font-size: 14px;
+  color: var(--gray-400);
+  opacity: 0.35;
+  transition: opacity 0.35s, color 0.35s;
+}
+.load-step.active { color: var(--black); opacity: 1; }
+.load-step.done { color: var(--gray-600); opacity: 0.75; }
+.load-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--gray-200);
+  flex-shrink: 0;
+  transition: background 0.35s;
+}
+.load-step.active .load-dot,
+.load-step.done .load-dot { background: var(--lime-dark); }
+@keyframes blink { 0%,100%{opacity:1}50%{opacity:0.25} }
+.load-step.active .load-dot { animation: blink 0.9s infinite; }
+
+/* ─── EMAIL CAPTURE ─── */
+.email-screen { padding-top: 8px; }
+.results-ready-label {
+  display: inline-block;
+  background: var(--lime-light);
+  color: #3d5a1e;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  padding: 4px 12px;
+  border-radius: var(--radius-pill);
+  margin-bottom: 16px;
+}
+.form-input {
+  display: block;
+  width: 100%;
+  padding: 14px 16px;
+  border: 1.5px solid var(--gray-200);
+  border-radius: var(--radius-sm);
+  font-family: var(--sans);
+  font-size: 15px;
+  color: var(--black);
+  background: var(--white);
+  margin-bottom: 10px;
+  transition: border-color 0.15s;
+  outline: none;
+  -webkit-appearance: none;
+}
+.form-input:focus { border-color: var(--lime-dark); }
+.form-input::placeholder { color: var(--gray-400); }
+.privacy-note {
+  font-size: 11px;
+  color: var(--gray-400);
+  text-align: center;
+  margin-top: 12px;
+  line-height: 1.5;
+}
+
+/* ─── RESULTS SCREEN ─── */
+.results-screen { padding-top: 8px; }
+
+.risk-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 16px;
+  border-radius: var(--radius-pill);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin-bottom: 14px;
+  border: 1.5px solid;
+}
+.risk-badge::before {
+  content: '';
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+}
+.risk-high { color: var(--risk-high-text); background: var(--risk-high-bg); border-color: var(--risk-high-border); }
+.risk-mod  { color: var(--risk-mod-text);  background: var(--risk-mod-bg);  border-color: var(--risk-mod-border); }
+.risk-low  { color: var(--risk-low-text);  background: var(--risk-low-bg);  border-color: var(--risk-low-border); }
+
+.result-message {
+  font-size: 22px;
+  font-weight: 600;
+  color: var(--black);
+  line-height: 1.25;
+  letter-spacing: -0.02em;
+  margin-bottom: 6px;
+}
+.result-submessage {
+  font-size: 14px;
+  color: var(--gray-600);
+  line-height: 1.6;
+  margin-bottom: 24px;
+}
+
+.result-cards { display: flex; flex-direction: column; gap: 10px; margin-bottom: 24px; }
+.result-card {
+  background: var(--gray-100);
+  border-radius: var(--radius-card);
+  padding: 16px 18px;
+}
+.rc-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--gray-400);
+  margin-bottom: 5px;
+}
+.rc-value {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--black);
+  letter-spacing: -0.02em;
+  line-height: 1.3;
+}
+.rc-sub {
+  font-size: 12px;
+  color: var(--gray-600);
+  margin-top: 4px;
+  line-height: 1.45;
+}
+
+/* ─── NEXT STEPS ─── */
+.next-steps {
+  background: var(--lime-light);
+  border-radius: var(--radius-card);
+  padding: 18px;
+  margin-bottom: 24px;
+}
+.next-steps-title {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #4a6a22;
+  margin-bottom: 12px;
+}
+.step-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+.step-row:last-child { margin-bottom: 0; }
+.step-num {
+  width: 24px;
+  height: 24px;
+  background: var(--lime-dark);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--black);
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+.step-text {
+  font-size: 13px;
+  color: #2a3d12;
+  line-height: 1.5;
+}
+
+/* ─── CALENDLY BUTTON ─── */
+.calendly-btn {
+  display: block;
+  width: 100%;
+  padding: 16px 20px;
+  background: var(--black);
+  color: var(--white);
+  border: none;
+  border-radius: var(--radius-pill);
+  font-family: var(--sans);
+  font-size: 15px;
+  font-weight: 600;
+  text-align: center;
+  text-decoration: none;
+  letter-spacing: -0.01em;
+  cursor: pointer;
+  transition: background 0.15s, transform 0.1s;
+  -webkit-tap-highlight-color: transparent;
+}
+.calendly-btn:hover { background: #2a2a2a; }
+.calendly-btn:active { transform: scale(0.98); }
+.calendly-label {
+  font-size: 12px;
+  color: var(--gray-400);
+  text-align: center;
+  margin-top: 10px;
+}
+
+/* ─── EXIT SCREEN ─── */
+.exit-screen { padding-top: 20px; }
+
+/* ─── SLIDE TRANSITIONS ─── */
+@keyframes slideIn {
+  from { opacity: 0; transform: translateX(20px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+@keyframes slideInBack {
+  from { opacity: 0; transform: translateX(-20px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+.slide-in      { animation: slideIn     0.22s ease-out both; }
+.slide-in-back { animation: slideInBack 0.22s ease-out both; }
+
+/* ─── DISCLAIMER ─── */
+.disclaimer {
+  font-size: 10px;
+  color: var(--gray-400);
+  text-align: center;
+  margin-bottom: 20px;
+  line-height: 1.5;
+}
+</style>
+</head>
+
+<body>
+<div id="app">
+  <!-- Top bar -->
+  <div class="top-bar">The GLP-1 Muscle Protection Protocol</div>
+
+  <!-- Logo -->
+  <div class="logo-bar">
+    <div class="logo">glp1body</div>
+  </div>
+
+  <!-- Hero -->
+  <div class="hero-wrap">
+    <div class="hero-fallback">
+      <div class="hero-fallback-text">Know your<br>muscle risk.</div>
+    </div>
+  </div>
+
+  <!-- Main card -->
+  <div class="card" id="card">
+    <p class="disclaimer">Free assessment · 2 minutes · Personalized results</p>
+    <div id="qroot"></div>
+  </div>
+</div>
+
+<script>
+/* ─────────────────────────────────────────────
+   CONFIG — REPLACE THESE TWO VALUES
+   ─────────────────────────────────────────────
+   1. SHEET_URL → URL de tu Google Apps Script Web App
+      Pasos: Apps Script > Nuevo proyecto > pega el código del README
+      > Implementar > Web app > "Anyone" > Copiar URL
+   2. CALENDLY_URL → Tu link de Calendly
+   ───────────────────────────────────────────── */
+const SHEET_URL    = 'https://script.google.com/macros/s/AKfycbw2Rq_UAiNGoU-QrJYnz4XuDNRzbqiYs5urLTL2gmqcLnutnhgKCo0hTL_sacURvc94iw/exec';
+const CALENDLY_URL = 'https://calendly.com/YOUR_LINK';
+
+/* ─── QUIZ STEPS ─── */
+const SC = [
+  {id:'gender', type:'single', qn:1,  lbl:'About you',
+   q:'What is your gender?',
+   opts:[{t:'Woman',v:'woman'},{t:'Man',v:'man'}]},
+
+  {id:'age', type:'single', qn:2, lbl:'About you',
+   q:'How old are you?',
+   opts:[{t:'Under 35',v:'u35'},{t:'35–43',v:'35-43'},{t:'44–50',v:'44-50'},{t:'51–58',v:'51-58'},{t:'59 or older',v:'59p'}]},
+
+  {id:'med', type:'single', qn:3, lbl:'Your GLP-1',
+   q:'Which GLP-1 medication are you currently taking?',
+   opts:[
+     {t:'Ozempic or Wegovy (semaglutide)',v:'sema'},
+     {t:'Mounjaro or Zepbound (tirzepatide)',v:'tirz'},
+     {t:'Other GLP-1',v:'other'},
+     {t:'I recently stopped taking it',v:'stopped',n:'highest urgency'}
+   ]},
+
+  {id:'dur', type:'single', qn:4, lbl:'Your GLP-1',
+   q:'How long have you been taking your GLP-1 medication?',
+   opts:[
+     {t:'Less than 1 month',v:'lt1m'},
+     {t:'1–3 months',v:'1-3m'},
+     {t:'3–6 months',v:'3-6m'},
+     {t:'6–12 months',v:'6-12m'},
+     {t:'More than 12 months',v:'gt12m'}
+   ]},
+
+  {id:'wlost', type:'single', qn:5, lbl:'Your progress',
+   q:'How much weight have you lost since starting?',
+   opts:[
+     {t:'Less than 10 lbs',v:'lt10'},
+     {t:'10–20 lbs',v:'10-20'},
+     {t:'20–35 lbs',v:'20-35'},
+     {t:'35–50 lbs',v:'35-50'},
+     {t:'More than 50 lbs',v:'gt50'}
+   ]},
+
+  {id:'wcurr', type:'single', qn:6, lbl:'Your profile',
+   q:'What is your approximate current weight?',
+   opts:[
+     {t:'Under 140 lbs',v:'lt140'},
+     {t:'140–165 lbs',v:'140-165'},
+     {t:'165–190 lbs',v:'165-190'},
+     {t:'190–220 lbs',v:'190-220'},
+     {t:'Over 220 lbs',v:'gt220'}
+   ]},
+
+  {id:'b1', type:'bridge',
+   headline:"Here's something most GLP-1 users don't know.",
+   body:'Up to <span class="highlight">40% of the weight you\'ve lost</span> may not be fat — it may be muscle.<br><br>Not because you did something wrong. Because GLP-1 medications create a deep caloric deficit, and your body uses muscle as fuel when it doesn\'t have enough protein and resistance training to protect it.<br><br>The next few questions will tell us exactly where you stand.'},
+
+  {id:'sym', type:'multi', qn:7, lbl:"What you're noticing",
+   q:'Have you noticed any of these since starting? Select all that apply.',
+   opts:[
+     {t:'More loose or saggy skin',v:'skin'},
+     {t:'Less muscle definition — smaller but softer',v:'softer'},
+     {t:'My face looks different — thinner but not how I expected',v:'face',n:'Ozempic face'},
+     {t:'I feel weaker or tire more easily',v:'weak'},
+     {t:"Losing weight but don't look toned",v:'untoned'},
+     {t:'None of these yet',v:'none',x:1}
+   ]},
+
+  {id:'ex', type:'single', qn:8, lbl:'Your routine',
+   q:'What does your current exercise routine look like?',
+   opts:[
+     {t:'No structured exercise',v:'none'},
+     {t:'Light activity — walks, yoga, stretching',v:'light'},
+     {t:'Cardio 2–3x per week',v:'cardio',n:'no resistance = partial protection'},
+     {t:'Occasional weights — no real structure',v:'occ'},
+     {t:'Consistent resistance training program',v:'resist'}
+   ]},
+
+  {id:'pro', type:'single', qn:9, lbl:'Your nutrition',
+   q:'How much protein do you eat on a typical day?',
+   opts:[
+     {t:"I don't track",v:'notrack'},
+     {t:'Less than 50g',v:'lt50'},
+     {t:'50–80g',v:'50-80'},
+     {t:'80–120g',v:'80-120'},
+     {t:'Over 120g',v:'gt120'}
+   ]},
+
+  {id:'b2', type:'bridge',
+   headline:"This isn't about willpower. It never was.",
+   body:"Your body in perimenopause is fighting a two-front biological battle: GLP-1 is creating a deep caloric deficit, and declining estrogen is directly reducing your ability to maintain muscle mass at the same time.<br><br>Nobody told you this. Your doctor didn't. The medication provider didn't.<br><br>That gap is exactly what the next questions help us understand — so your Blueprint addresses your specific situation."},
+
+  {id:'fear', type:'single', qn:10, lbl:'Looking ahead',
+   q:'When you think about eventually stopping your medication, how do you feel?',
+   opts:[
+     {t:"Terrified of regaining everything I've lost",v:'terrified'},
+     {t:"Anxious, but I'll figure it out",v:'anxious'},
+     {t:"Neutral — I haven't thought about it much",v:'neutral'},
+     {t:"I'm not planning to stop anytime soon",v:'not_stop'}
+   ]},
+
+  {id:'goal', type:'single', qn:11, lbl:'Your vision',
+   q:'What would feel like the biggest win for you 6 months from now?',
+   opts:[
+     {t:'Keeping my results after stopping the medication',v:'keep'},
+     {t:'Having a toned body, not just a smaller one',v:'toned'},
+     {t:'Feeling genuinely strong and energetic',v:'strong'},
+     {t:'Not being scared when the medication ends',v:'not_scared'}
+   ]},
+
+  {id:'diet', type:'multi', qn:12, lbl:'Your nutrition',
+   q:'Any dietary restrictions we should know about? Select all that apply.',
+   opts:[
+     {t:'Dairy-free',v:'dairy'},
+     {t:'Vegan',v:'vegan'},
+     {t:'Vegetarian',v:'veg'},
+     {t:'Gluten-free',v:'gluten'},
+     {t:'No restrictions',v:'none',x:1}
+   ]},
+
+  {id:'kid', type:'single', qn:13, lbl:'Medical check',
+   q:'Have you ever been told you have kidney disease or reduced kidney function?',
+   sub:'This affects our protein recommendations for you.',
+   opts:[{t:'No',v:'no'},{t:'Yes',v:'yes'},{t:'Not sure',v:'maybe'}]},
+
+  {id:'notes', type:'notes', qn:14, lbl:'Anything else?',
+   q:'Anything we should know to make your plan more accurate?',
+   sub:'Optional — skip if nothing else is relevant.',
+   ph:"e.g. I have a bad knee / I can't eat dairy / I take metformin / I have hypothyroidism"},
+
+  {id:'load',  type:'loading'},
+  {id:'email', type:'email'}
+];
+
+/* ─── STATE ─── */
+let ci = 0, ans = {}, exited = false, done = false, goingBack = false;
+
+/* ─── RISK CALC ─── */
+function calcRisk(){
+  let score = 0;
+  const em = {none:3,light:2,cardio:1,occ:0,resist:-1};
+  const pm = {notrack:3,lt50:3,'50-80':2,'80-120':1,gt120:0};
+  const dm = {lt1m:0,'1-3m':1,'3-6m':2,'6-12m':3,gt12m:4};
+  const wm = {lt10:0,'10-20':1,'20-35':2,'35-50':3,gt50:4};
+  score += (em[ans.ex]??1) + (pm[ans.pro]??1) + (dm[ans.dur]??1) + (wm[ans.wlost]??1);
+  if(ans.med==='stopped') score += 2;
+  if(ans.fear==='terrified') score += 1;
+  if(score>=9) return 'HIGH';
+  if(score>=5) return 'MODERATE';
+  return 'LOW';
+}
+function estMuscle(){
+  const wm = {lt10:5,'10-20':15,'20-35':27,'35-50':42,gt50:57};
+  const w = wm[ans.wlost] || 15;
+  return Math.round(w*0.25) + '–' + Math.round(w*0.39) + ' lbs';
+}
+function proteinTarget(){
+  const wkg = {lt140:57,'140-165':68,'165-190':80,'190-220':93,gt220:108};
+  const kg = wkg[ans.wcurr] || 75;
+  return Math.round(kg*1.4) + 'g';
+}
+
+/* ─── GOOGLE SHEETS SUBMIT ─── */
+async function submitToSheets(name, email){
+  if(!SHEET_URL || SHEET_URL === 'YOUR_GOOGLE_APPS_SCRIPT_URL') {
+    console.warn('ℹ️ SHEET_URL not configured — skipping data submission');
+    return;
+  }
+  const payload = {
+    timestamp: new Date().toISOString(),
+    name, email,
+    risk: calcRisk(),
+    muscle_estimate: estMuscle(),
+    protein_target: proteinTarget(),
+    ...ans
+  };
+  try {
+    await fetch(SHEET_URL, {
+      method: 'POST',
+      mode: 'no-cors',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+  } catch(e) {
+    console.error('Sheet submit error:', e);
+  }
+}
+
+/* ─── NAVIGATION ─── */
+function goNext(){
+  const s = SC[ci];
+  if(s.id === 'gender' && ans.gender === 'man'){ exited = true; render(); return; }
+  if(s.type === 'email'){
+    const name  = document.getElementById('enm')?.value?.trim();
+    const email = document.getElementById('eem')?.value?.trim();
+    submitToSheets(name, email);
+    done = true; render(); return;
+  }
+  goingBack = false;
+  ci++; render();
+  if(SC[ci] && SC[ci].type === 'loading') doLoad();
+}
+
+function goBack(){
+  if(exited){ exited = false; goingBack = true; render(); return; }
+  if(ci > 0){ goingBack = true; ci--; render(); }
+}
+
+/* ─── SELECTION ─── */
+function sel(oi){
+  const s = SC[ci];
+  ans[s.id] = s.opts[oi].v;
+  // Flash then auto-advance
+  const btns = document.querySelectorAll('.opt-btn');
+  if(btns[oi]) btns[oi].classList.add('flash');
+  setTimeout(() => goNext(), 280);
+}
+
+function selM(oi){
+  const s = SC[ci];
+  const o = s.opts[oi];
+  if(!ans[s.id]) ans[s.id] = [];
+  if(o.x){
+    ans[s.id] = ans[s.id].includes(o.v) ? [] : [o.v];
+  } else {
+    const excl = s.opts.filter(x=>x.x).map(x=>x.v);
+    ans[s.id] = ans[s.id].filter(v=>!excl.includes(v));
+    if(ans[s.id].includes(o.v)) ans[s.id] = ans[s.id].filter(v=>v!==o.v);
+    else ans[s.id].push(o.v);
+  }
+  render();
+}
+
+function chkEmail(){
+  const btn = document.getElementById('ebtn');
+  const n   = document.getElementById('enm');
+  const e   = document.getElementById('eem');
+  if(btn && n && e)
+    btn.disabled = !(n.value.trim() && e.value.includes('@') && e.value.includes('.'));
+}
+
+/* ─── LOADING ANIMATION ─── */
+function doLoad(){
+  let step = 0;
+  const steps_labels = [
+    'Analyzing your GLP-1 timeline',
+    'Estimating lean mass loss',
+    'Reviewing your protein gap',
+    'Generating your personalized Blueprint'
+  ];
+  const iv = setInterval(() => {
+    const el = document.getElementById('ls'+step);
+    if(el) el.className = 'load-step done';
+    step++;
+    const nel = document.getElementById('ls'+step);
+    if(nel) nel.className = 'load-step active';
+    if(step >= steps_labels.length){
+      clearInterval(iv);
+      setTimeout(() => { ci++; render(); }, 600);
+    }
+  }, 900);
+}
+
+/* ─── RENDERERS ─── */
+function renderSingle(s){
+  const opts = s.opts.map((o,i) => {
+    const isSel = ans[s.id] === o.v;
+    return `
+      <button class="opt-btn${isSel?' selected':''}" onclick="sel(${i})">
+        <span class="opt-text">${o.t}${o.n?`<span class="opt-note">${o.n}</span>`:''}</span>
+        <span class="opt-check">${isSel?'✓':''}</span>
+      </button>`;
+  }).join('');
+  return `
+    ${s.lbl?`<div class="section-label">${s.lbl}</div>`:''}
+    <div class="question-title">${s.q}</div>
+    ${s.sub?`<div class="question-sub">${s.sub}</div>`:''}
+    <div class="options">${opts}</div>`;
+}
+
+function renderMulti(s){
+  const selA = ans[s.id] || [];
+  const opts = s.opts.map((o,i) => {
+    const isSel = selA.includes(o.v);
+    return `
+      <button class="opt-btn${isSel?' selected':''}" onclick="selM(${i})">
+        <span class="opt-text">${o.t}${o.n?`<span class="opt-note">${o.n}</span>`:''}</span>
+        <span class="opt-check square">${isSel?'✓':''}</span>
+      </button>`;
+  }).join('');
+  return `
+    ${s.lbl?`<div class="section-label">${s.lbl}</div>`:''}
+    <div class="question-title">${s.q}</div>
+    <div class="options">${opts}</div>
+    <button class="continue-btn" onclick="goNext()">Continue →</button>`;
+}
+
+function renderBridge(s){
+  return `
+    <div class="bridge-card">
+      <div class="bridge-headline">${s.headline}</div>
+      <div class="bridge-body">${s.body}</div>
+    </div>
+    <button class="continue-btn" onclick="goNext()">I understand →</button>`;
+}
+
+function renderNotes(s){
+  return `
+    ${s.lbl?`<div class="section-label">${s.lbl}</div>`:''}
+    <div class="question-title">${s.q}</div>
+    <div class="question-sub">${s.sub}</div>
+    <textarea
+      style="display:block;width:100%;min-height:100px;padding:14px 16px;border:1.5px solid var(--gray-200);border-radius:12px;font-family:var(--sans);font-size:14px;color:var(--black);resize:vertical;outline:none;margin-bottom:8px;background:var(--white);"
+      placeholder="${s.ph}"
+      oninput="ans.notes=this.value"
+    >${ans.notes||''}</textarea>
+    <button class="continue-btn" onclick="goNext()">Continue →</button>
+    <button class="skip-btn" onclick="ans.notes='';goNext()">Skip — nothing else to add</button>`;
+}
+
+function renderLoading(){
+  const steps = [
+    'Analyzing your GLP-1 timeline',
+    'Estimating lean mass loss',
+    'Reviewing your protein gap',
+    'Generating your personalized Blueprint'
+  ];
+  const sh = steps.map((st,i) =>
+    `<div class="load-step${i===0?' active':''}" id="ls${i}">
+       <span class="load-dot"></span>
+       <span>${st}</span>
+     </div>`
+  ).join('');
+  return `
+    <div class="loading-screen">
+      <div class="loading-title">Calculating your<br>Muscle Risk Score...</div>
+      <div class="loading-steps">${sh}</div>
+    </div>`;
+}
+
+function renderEmail(){
+  return `
+    <div class="email-screen">
+      <div class="results-ready-label">Your results are ready</div>
+      <div class="question-title">Your Muscle Risk Score has been calculated.</div>
+      <div class="question-sub" style="margin-bottom:20px">Enter your details to see your complete score — and receive your personalized GLP-1 Body Blueprint by email.</div>
+      <input id="enm" type="text"  class="form-input" placeholder="First name" oninput="chkEmail()"/>
+      <input id="eem" type="email" class="form-input" placeholder="Email address" oninput="chkEmail()"/>
+      <button id="ebtn" class="continue-btn" disabled onclick="goNext()">See my Muscle Risk Score →</button>
+      <p class="privacy-note">🔒 Your information is never shared. Used only to send your Blueprint.</p>
+    </div>`;
+}
+
+function renderDone(){
+  const risk   = calcRisk();
+  const muscle = estMuscle();
+  const prot   = proteinTarget();
+  const rClass = risk==='HIGH' ? 'risk-high' : risk==='MODERATE' ? 'risk-mod' : 'risk-low';
+  const rLabel = risk==='HIGH' ? 'HIGH RISK' : risk==='MODERATE' ? 'MODERATE RISK' : 'LOW RISK';
+  const rMsg   = risk==='HIGH'
+    ? "Your results show significant muscle loss risk. Your Blueprint and a free plan call will address this directly."
+    : risk==='MODERATE'
+    ? "You're ahead of most — but there are clear gaps to close before they compound."
+    : "You're in a better position than most GLP-1 users. Let's keep it that way.";
+  const fearLine = ans.fear === 'terrified'
+    ? "Your biggest concern — what happens when you stop — is addressed specifically in your Blueprint."
+    : "Your Blueprint covers the transition off medication and long-term muscle maintenance.";
+  const faceLine = ans.sym && ans.sym.includes('face')
+    ? `<div class="result-card">
+         <div class="rc-label">Ozempic face protocol</div>
+         <div class="rc-value">Skin &amp; collagen protocol included</div>
+         <div class="rc-sub">Collagen peptides + Vitamin C — in your supplement stack</div>
+       </div>`
+    : '';
+
+  return `
+    <div class="results-screen">
+      <span class="risk-badge ${rClass}">${rLabel}</span>
+      <div class="result-message">${rMsg}</div>
+      <div class="result-submessage">${fearLine}</div>
+
+      <div class="result-cards">
+        <div class="result-card">
+          <div class="rc-label">Estimated lean mass lost</div>
+          <div class="rc-value">${muscle} of muscle alongside fat</div>
+          <div class="rc-sub">Based on your timeline and weight lost — this is what your Blueprint addresses first</div>
+        </div>
+        <div class="result-card">
+          <div class="rc-label">Your daily protein target</div>
+          <div class="rc-value">${prot} per day</div>
+          <div class="rc-sub">Personalized for your current weight — included in your Blueprint</div>
+        </div>
+        ${faceLine}
+      </div>
+
+      <div class="next-steps">
+        <div class="next-steps-title">What happens next</div>
+        <div class="step-row">
+          <div class="step-num">1</div>
+          <div class="step-text">Check your email — your full GLP-1 Body Blueprint is on its way</div>
+        </div>
+        <div class="step-row">
+          <div class="step-num">2</div>
+          <div class="step-text">Book your free 30-minute plan call below</div>
+        </div>
+        <div class="step-row">
+          <div class="step-num">3</div>
+          <div class="step-text">We review your Blueprint together and show you exactly what your body needs right now</div>
+        </div>
+      </div>
+
+      <a href="${CALENDLY_URL}" target="_blank" class="calendly-btn">
+        📅 Book your free plan call
+      </a>
+      <p class="calendly-label">30 minutes · Free · No obligation</p>
+    </div>`;
+}
+
+function renderExit(){
+  return `
+    <div class="exit-screen">
+      <div class="section-label">Program eligibility</div>
+      <div class="question-title">This program is built for women.</div>
+      <div class="question-sub">The GLP-1 Body Protocol is designed specifically for women in perimenopause on GLP-1 medications. We don't have the right program for you yet.<br><br>If this was a mistake, start over below.</div>
+      <button class="continue-btn" onclick="ci=0;exited=false;ans={};render()">← Start over</button>
+    </div>`;
+}
+
+/* ─── MAIN RENDER ─── */
+function render(){
+  const root = document.getElementById('qroot');
+  const animClass = goingBack ? 'slide-in-back' : 'slide-in';
+
+  if(done){
+    root.innerHTML = `<div class="${animClass}">${renderDone()}</div>`;
+    return;
+  }
+  if(exited){
+    root.innerHTML = `<div class="${animClass}">${renderExit()}</div>`;
+    return;
+  }
+
+  const s = SC[ci];
+
+  /* Progress */
+  const totalQ  = 14;
+  const pct     = s.qn ? Math.round((s.qn / totalQ) * 100) : (s.type==='loading'?95:s.type==='email'?98:0);
+  const showHdr = s.type !== 'loading' && s.type !== 'email';
+
+  let hdr = '';
+  if(showHdr){
+    const backBtn = ci > 0
+      ? `<button class="back-btn" onclick="goBack()" aria-label="Go back">←</button>`
+      : `<div class="back-spacer"></div>`;
+    hdr = `
+      <div class="progress-header">
+        ${backBtn}
+        <div class="progress-track">
+          <div class="progress-fill" style="width:${pct}%"></div>
+        </div>
+        <div class="progress-count">${s.qn ? s.qn+' / '+totalQ : ''}</div>
+      </div>`;
+  }
+
+  let body = '';
+  if(s.type === 'single')  body = renderSingle(s);
+  else if(s.type === 'multi')  body = renderMulti(s);
+  else if(s.type === 'bridge') body = renderBridge(s);
+  else if(s.type === 'notes')  body = renderNotes(s);
+  else if(s.type === 'loading') body = renderLoading();
+  else if(s.type === 'email')  body = renderEmail();
+
+  root.innerHTML = `${hdr}<div class="${animClass}">${body}</div>`;
+
+  /* Re-attach email listeners after render */
+  if(s.type === 'email'){
+    document.getElementById('enm')?.addEventListener('input', chkEmail);
+    document.getElementById('eem')?.addEventListener('input', chkEmail);
+  }
+}
+
+/* ─── INIT ─── */
+render();
+</script>
+
+<!--
+═══════════════════════════════════════════════════════════
+  SETUP GUIDE — GOOGLE SHEETS + NOTION INTEGRATION
+═══════════════════════════════════════════════════════════
+
+PASO 1 — GOOGLE APPS SCRIPT (receptor de datos)
+───────────────────────────────────────────────
+1. Ve a script.google.com > Nuevo proyecto
+2. Pega este código:
+
+```javascript
+function doPost(e) {
+  const sheet = SpreadsheetApp.openById('TU_SPREADSHEET_ID').getActiveSheet();
+  const data  = JSON.parse(e.postData.contents);
+
+  // Primera fila como cabecera (solo si está vacío)
+  if(sheet.getLastRow() === 0){
+    sheet.appendRow(Object.keys(data));
+  }
+  sheet.appendRow(Object.values(data));
+
+  return ContentService
+    .createTextOutput(JSON.stringify({status:'ok'}))
+    .setMimeType(ContentService.MimeType.JSON);
+}
+```
+
+3. Implementar > Nueva implementación > Web app
+4. Ejecutar como: Yo / Quién tiene acceso: Cualquiera
+5. Copia la URL y reemplaza YOUR_GOOGLE_APPS_SCRIPT_URL en este HTML
+
+PASO 2 — SPREADSHEET ID
+────────────────────────
+En la URL de tu Google Sheet:
+https://docs.google.com/spreadsheets/d/[ESTE_ES_TU_ID]/edit
+Reemplaza TU_SPREADSHEET_ID en el Apps Script
+
+PASO 3 — NOTION (opcional, vía automatización)
+───────────────────────────────────────────────
+Opción A (recomendado): Zapier/Make
+  - Trigger: "New Row in Google Sheets"
+  - Action: "Create Page in Notion Database"
+  - Conecta los campos: timestamp, name, email, risk, etc.
+
+Opción B: Apps Script directo
+  Añade al doPost() de arriba:
+  ```
+  const notionUrl = 'https://api.notion.com/v1/pages';
+  // Fetch con Authorization: Bearer TU_NOTION_TOKEN
+  ```
+
+PASO 4 — CALENDLY
+──────────────────
+Reemplaza https://calendly.com/YOUR_LINK con tu link real
+
+═══════════════════════════════════════════════════════════
+-->
+
+</body>
+</html>
